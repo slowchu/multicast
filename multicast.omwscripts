@@ -1,2 +1,2 @@
-# OpenMW script list for the Multicast prototype mod
+# Multicast OpenMW script list
 PLAYER: scripts/multicast/init.lua

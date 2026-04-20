@@ -2,11 +2,13 @@ local config = require("scripts.multicast.config")
 local state = require("scripts.multicast.state")
 local debug = require("scripts.multicast.debug")
 local compat = require("scripts.multicast.compat")
+local backend = require("scripts.multicast.magexp_backend")
+local targeting = require("scripts.multicast.targeting")
 
 local M = {}
 
 local function cancel(reason)
-    debug.warn("Sequence cancelled: " .. tostring(reason))
+    debug.warn("Burst cancelled: " .. tostring(reason))
     state.cancelSequence()
 end
 
@@ -36,28 +38,34 @@ local function validateSnapshot(player)
         )
     end
 
-    return true, nil
+    return true, currentSpell
 end
 
-local function castOnce(player, castIndex)
-    debug.log(string.format("Cast attempt #%d at t=%.3f", castIndex, compat.now()))
+local function launchOnce(player, castIndex)
+    local now = compat.now()
+    debug.log(string.format("Launch attempt #%d at t=%.3f", castIndex, now))
 
-    local ok, reason = validateSnapshot(player)
+    local ok, currentSpellOrReason = validateSnapshot(player)
     if not ok then
-        cancel(reason)
+        cancel(currentSpellOrReason)
         return false
     end
 
-    if config.forceSpellStance then
-        local stanceOk = compat.ensureSpellStance(player)
-        if not stanceOk then
-            debug.warn("Could not guarantee spell stance before cast attempt")
-        end
+    local currentSpell = currentSpellOrReason
+    local requestData, targetReason = targeting.buildLaunchData(player, currentSpell)
+    if not requestData then
+        cancel("targeting failed: " .. tostring(targetReason))
+        return false
     end
 
-    local activated = compat.activateReadiedSpell(player)
-    if not activated then
-        cancel("native spell-use activation failed")
+    debug.log(string.format(
+        "Sending MagExp cast request: spellId=%s",
+        tostring(requestData.spellId)
+    ))
+
+    local launched, launchReason = backend.launch(requestData)
+    if not launched then
+        cancel("backend launch failed: " .. tostring(launchReason))
         return false
     end
 
@@ -70,27 +78,27 @@ local function queueNext(player, nextCastIndex)
     end
 
     if state.remainingCasts <= 0 then
-        debug.log("Sequence complete")
+        debug.log("Burst sequence complete")
         state.completeSequence()
         return
     end
 
     debug.log(string.format(
-        "Queueing cast #%d in %.2fs (remaining queued: %d)",
+        "Queueing launch #%d in %.2fs (remaining queued: %d)",
         nextCastIndex,
         config.defaultIntervalSeconds,
         state.remainingCasts
     ))
 
     compat.scheduleSimulation(config.defaultIntervalSeconds, function()
-        debug.log(string.format("Timer fired for cast #%d", nextCastIndex))
+        debug.log(string.format("Timer fired for launch #%d", nextCastIndex))
 
         if not state.busy then
             return
         end
 
-        local ok = castOnce(player, nextCastIndex)
-        if not ok then
+        local launched = launchOnce(player, nextCastIndex)
+        if not launched then
             return
         end
 
@@ -107,33 +115,34 @@ function M.triggerMulticast()
     end
 
     if state.busy then
-        debug.warn("Trigger ignored: sequence already active")
+        debug.warn("Trigger rejected: burst already active")
         return false
     end
 
     local spell, spellId, spellName = selectedSpellSnapshot(player)
     if not spell or not spellId then
-        debug.warn("Trigger ignored: no valid selected spell")
+        debug.warn("Trigger rejected: no selected spell")
         return false
     end
 
     local casts = state.getModeCount()
     debug.log(string.format(
-        "Trigger multicast: mode=x%d, selectedSpell=%s (%s)",
+        "Trigger burst: mode=x%d, spell=%s (%s), backend=%s",
         casts,
         tostring(spellName),
-        tostring(spellId)
+        tostring(spellId),
+        backend.backendName()
     ))
 
     state.beginSequence(spellId, spellName, casts, compat.now())
 
-    local firstOk = castOnce(player, 1)
+    local firstOk = launchOnce(player, 1)
     if not firstOk then
         return false
     end
 
     if casts <= 1 then
-        debug.log("Sequence complete (x1 mode)")
+        debug.log("Burst sequence complete (x1 mode)")
         state.completeSequence()
         return true
     end

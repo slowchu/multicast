@@ -1,65 +1,67 @@
-# Multicast (OpenMW Lua prototype)
+# Multicast (OpenMW Lua)
 
-A prototype OpenMW Lua mod that tests **native repeated spell-use activation** (multicast) for the player.
+Multicast is a player-side OpenMW Lua mod that launches the currently selected spell in a short burst (`x1 / x2 / x3 / x5`) using **Spell Framework Plus** as the casting backend.
 
-## What this mod does
+This mod is no longer a native cast API experiment. It does **not** rely on guessed `player.cast`/`magic.cast`/`types.Actor.cast` paths.
 
-- Adds a multicast mode with cast counts: **x1 / x2 / x3 / x5**.
-- Lets you cycle mode and trigger a multicast cast sequence.
-- On trigger, the mod:
-  1. snapshots the currently selected spell,
-  2. optionally ensures spell stance,
-  3. uses the native spell-use path for the first cast,
-  4. queues follow-up native cast activations using simulation timers (default spacing: `0.25s`).
-- Cancels a sequence if the selected spell changes mid-sequence.
+## Requirements
 
-This is intentionally a behavior-testing prototype, not a balance/combat overhaul.
+1. **Spell Framework Plus**
+2. **MaxYari Lua Physics** (required by Spell Framework Plus)
 
-## Installation (OpenMW)
+## Installation
 
-1. Put this repository folder directly in your OpenMW mods location (as a normal mod folder).
-2. Ensure the repo root is treated as the mod data folder (no nested `Data Files` folder is required).
-3. Enable **`multicast.omwscripts`** in the launcher content list, or add it in `openmw.cfg` content entries.
-   - The `.omwscripts` file uses OpenMW line-based declarations (e.g. `PLAYER: scripts/multicast/init.lua`).
-4. Launch the game and load a save with a spellcasting-capable character.
+1. Install and enable Spell Framework Plus and its dependencies first.
+2. Ensure `SPELL API PLUS.omwscripts` is enabled in your OpenMW content list.
+3. Place this mod folder into your OpenMW data/mod directory.
+4. Enable `multicast.omwscripts` in your OpenMW content list.
+5. Start the game.
 
-## Controls / hotkeys (default fallback)
+`multicast.omwscripts` uses OpenMW line-based script declarations:
 
-Because input APIs can differ between OpenMW versions, v1 uses a compatibility-first input setup:
+```text
+# Multicast OpenMW script list
+PLAYER: scripts/multicast/init.lua
+```
 
-- **Cycle multicast mode**: `M`
-- **Trigger multicast**: `N`
+## Controls
 
-If action registration APIs are available in your OpenMW build, they can be wired later with minimal refactor (the code is module-separated for this).
+Fallback bindings in this prototype:
 
-## Current limitations (v1)
+- `M`: cycle multicast mode (`x1 -> x2 -> x3 -> x5 -> x1`)
+- `N`: trigger multicast burst
 
-- Prototype uses compatibility wrappers for API names that may differ across 0.51/dev snapshots.
-- HUD indicator is intentionally minimal and may degrade to on-screen message fallback if the expected HUD API is unavailable.
-- No custom spell effects.
-- No fake projectile implementation.
-- One active multicast sequence at a time.
+## What multicast does
 
-## What to observe during testing
+When you trigger a burst:
 
-- Whether repeated native spell-use activations chain consistently.
-- Whether cast animation, VFX, and SFX stay coherent on short intervals.
-- Whether stamina/magicka use and cast outcomes remain mechanically correct.
-- Whether spell stance transitions are stable while sequencing casts.
-- How cancellation behaves if selected spell changes during an active sequence.
+1. The mod snapshots the currently selected spell.
+2. It starts a single active sequence (reentry is rejected while busy).
+3. It sends cast requests through Spell Framework Plus (`MagExp_CastRequest`).
+4. It schedules follow-up launches with simulation timers (`0.25s` spacing by default).
+5. If selected spell changes mid-sequence, remaining launches are cancelled.
 
-## Known uncertainty
+## Current limitations
 
-OpenMW Lua API naming around selected spell access, stance toggling, and native spell activation can vary between builds (especially dev snapshots around 0.51-era changes). This mod isolates such calls in `scripts/multicast/compat.lua` and logs assumptions so you can quickly adapt to your exact engine build.
+- This is still a prototype focused on burst behavior validation.
+- Input is currently fallback key handling (`onKeyPress` path).
+- Targeting uses a simple forward-direction estimate from player rotation and should be refined as needed for special spell types.
+- Animation behavior for rapid burst launches is engine/framework dependent and should be observed in play tests.
 
-## File layout
+## What to test / observe
 
-- `multicast.omwscripts`
-- `scripts/multicast/init.lua`
-- `scripts/multicast/config.lua`
-- `scripts/multicast/state.lua`
-- `scripts/multicast/cast_controller.lua`
-- `scripts/multicast/input.lua`
-- `scripts/multicast/ui.lua`
-- `scripts/multicast/debug.lua`
-- `scripts/multicast/compat.lua`
+- Burst stability for `x2/x3/x5` over multiple spells.
+- Visual pacing and timing at `0.25s` intervals.
+- How animation presentation looks under repeated framework-driven launches.
+- Cancellation behavior when switching selected spells mid-burst.
+- Dependency failure behavior when Spell Framework Plus (or prerequisites) is missing.
+
+## Logging
+
+The mod logs with `[Multicast]` prefix and includes:
+
+- initialization and backend assumptions,
+- mode changes and trigger attempts,
+- each queued launch timestamp,
+- cancellation reasons,
+- dependency failure notices.

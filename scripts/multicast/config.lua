@@ -5,9 +5,9 @@ M.defaultModeIndex = 1
 M.defaultIntervalSeconds = 0.25
 
 M.debugEnabled = true
-M.forceSpellStance = true
 
 M.input = {
+    -- Fallback key handling via onKeyPress in player context.
     cycleKey = string.byte("M"),
     triggerKey = string.byte("N"),
 }

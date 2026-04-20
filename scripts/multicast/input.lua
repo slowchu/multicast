@@ -14,7 +14,7 @@ function M.init(handlers)
             debug.log("Input: cycle mode key pressed")
             M._handlers.onCycleMode()
         elseif keyCode == config.input.triggerKey then
-            debug.log("Input: trigger multicast key pressed")
+            debug.log("Input: trigger burst key pressed")
             M._handlers.onTriggerCast()
         end
     end)

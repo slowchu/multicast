@@ -16,13 +16,14 @@ function M.init()
     if not config.ui.enabled then
         return
     end
-    debug.log("UI initialized (message-based HUD prototype)")
+    debug.log("UI initialized")
 end
 
 function M.refresh(state)
     if not config.ui.enabled then
         return
     end
+
     local line = formatHud(state)
     if line ~= M._lastHudLine then
         debug.message(line)
