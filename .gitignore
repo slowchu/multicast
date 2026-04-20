@@ -1,0 +1,17 @@
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Lua bytecode
+*.luac
+
+# Logs / local artifacts
+*.log
+/tmp/
