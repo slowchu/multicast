@@ -23,13 +23,23 @@ local function onTriggerCast()
     end
 end
 
-local function init()
-    dependency.reset()
+local function requestBackendHandshake()
+    local ok, reason = backend.requestHandshake(compat.player())
+    if not ok then
+        dependency.setUnavailable("handshake dispatch failed: " .. tostring(reason))
+        ui.refresh(state)
+        return
+    end
 
-    debug.log("Initializing multicast (Spell Framework Plus backend)")
+    debug.log("Requested backend handshake from GLOBAL bridge")
+end
+
+local function init()
+    dependency.setChecking()
+
+    debug.log("Initializing multicast (PLAYER + GLOBAL bridge)")
     debug.log("API assumptions: " .. compat.describeApiAssumptions())
-    debug.log("Backend: " .. backend.backendName())
-    debug.log("Dependency check strategy: validate on first launch request via protected global event")
+    debug.log("Backend path: " .. backend.backendName())
     debug.log(string.format(
         "Config: interval=%.2f, debug=%s",
         config.defaultIntervalSeconds,
@@ -43,6 +53,8 @@ local function init()
     ui.init()
     ui.refresh(state)
 
+    requestBackendHandshake()
+
     debug.log("Initialization complete")
 end
 
@@ -50,9 +62,38 @@ init()
 
 return {
     engineHandlers = {
-        -- Fallback key path.
         onKeyPress = function(key)
             compat.handleKeyPress(key)
+        end,
+    },
+    eventHandlers = {
+        Multicast_BackendReady = function(data)
+            dependency.setAvailable()
+            debug.log("Backend handshake success: Spell Framework Plus available")
+            if data and data.backend then
+                debug.log("Global backend reports: " .. tostring(data.backend))
+            end
+            debug.message("Multicast backend ready.")
+            ui.refresh(state)
+        end,
+        Multicast_BackendUnavailable = function(data)
+            local reason = (data and data.reason) or "unknown"
+            dependency.setUnavailable(reason)
+            debug.warn("Backend handshake failed: " .. tostring(reason))
+            ui.refresh(state)
+        end,
+        Multicast_LaunchAccepted = function(data)
+            if data and data.spellId then
+                debug.log("Launch accepted by GLOBAL bridge: " .. tostring(data.spellId))
+            else
+                debug.log("Launch accepted by GLOBAL bridge")
+            end
+        end,
+        Multicast_LaunchFailed = function(data)
+            local reason = (data and data.reason) or "unknown"
+            dependency.setUnavailable(reason)
+            debug.warn("Launch failed in GLOBAL bridge: " .. tostring(reason))
+            ui.refresh(state)
         end,
     },
 }

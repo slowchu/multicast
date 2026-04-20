@@ -1,5 +1,5 @@
 -- OpenMW compatibility helpers.
--- Keep this small: only version-sensitive wrappers that are actually needed.
+-- Keep this small: only wrappers needed by the multicast prototype.
 
 local core = require("openmw.core")
 local async = require("openmw.async")
@@ -12,9 +12,9 @@ M._keyHandler = nil
 
 function M.describeApiAssumptions()
     return table.concat({
-        "Selected spell is read using types.Actor.selectedSpell(player)",
-        "Burst timing uses async:newSimulationTimer",
-        "Spell Framework Plus requests are sent by core.sendGlobalEvent('MagExp_CastRequest', data)",
+        "Selected spell uses types.Actor.getSelectedSpell(actor)",
+        "Burst timing uses async:newUnsavableSimulationTimer for inline closures",
+        "PLAYER->GLOBAL coordination uses core.sendGlobalEvent + object sendEvent replies",
     }, " | ")
 end
 
@@ -40,8 +40,16 @@ function M.getSelectedSpell(player)
         return nil
     end
 
-    -- Documented type API.
-    return types.Actor.selectedSpell(player)
+    if types.Actor and type(types.Actor.getSelectedSpell) == "function" then
+        return types.Actor.getSelectedSpell(player)
+    end
+
+    -- Cautious compatibility fallback for older aliases.
+    if types.Actor and type(types.Actor.selectedSpell) == "function" then
+        return types.Actor.selectedSpell(player)
+    end
+
+    return nil
 end
 
 function M.getSpellId(spell)
@@ -66,15 +74,14 @@ function M.registerKeyHandler(callback)
     M._keyHandler = callback
 end
 
-function M.handleKeyPress(keyCode)
+function M.handleKeyPress(key)
     if M._keyHandler then
-        M._keyHandler(keyCode)
+        M._keyHandler(key)
     end
 end
 
 function M.scheduleSimulation(delaySeconds, callback)
-    -- openmw.async docs: functions are methods on async package.
-    return async:newSimulationTimer(delaySeconds, async:callback(callback))
+    return async:newUnsavableSimulationTimer(delaySeconds, callback)
 end
 
 return M

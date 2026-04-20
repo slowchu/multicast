@@ -8,8 +8,8 @@ M.debugEnabled = true
 
 M.input = {
     -- Fallback key handling via onKeyPress in player context.
-    cycleKey = string.byte("M"),
-    triggerKey = string.byte("N"),
+    cycleKey = "m",
+    triggerKey = "n",
 }
 
 M.ui = {

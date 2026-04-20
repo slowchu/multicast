@@ -1,27 +1,43 @@
-local debug = require("scripts.multicast.debug")
 local compat = require("scripts.multicast.compat")
 local dependency = require("scripts.multicast.dependency")
 
 local M = {}
 
 function M.backendName()
-    return "Spell Framework Plus (MagExp_CastRequest)"
+    return "GLOBAL bridge -> interfaces.MagExp.launchSpell"
+end
+
+function M.requestHandshake(player)
+    local ok, resultOrErr = pcall(compat.sendGlobalEvent, "Multicast_CheckBackend", {
+        requester = player,
+    })
+
+    if not ok then
+        return false, tostring(resultOrErr)
+    end
+
+    return true, "handshake request dispatched"
 end
 
 function M.launch(data)
     if not data or not data.spellId then
-        return false, "invalid cast request data"
+        return false, "invalid launch data"
     end
 
-    local ok, err = pcall(compat.sendGlobalEvent, "MagExp_CastRequest", data)
+    if dependency.isChecking() then
+        return false, "backend still checking"
+    end
+
+    if not dependency.isAvailable() then
+        return false, dependency.getReason() or "backend unavailable"
+    end
+
+    local ok, resultOrErr = pcall(compat.sendGlobalEvent, "Multicast_LaunchRequest", data)
     if not ok then
-        dependency.reportMissing(err)
-        debug.error("MagExp_CastRequest failed: " .. tostring(err))
-        return false, tostring(err)
+        return false, tostring(resultOrErr)
     end
 
-    dependency.markBackendAvailable()
-    return true, nil
+    return true, "launch request dispatched"
 end
 
 return M

@@ -1,6 +1,8 @@
 local config = require("scripts.multicast.config")
 local state = require("scripts.multicast.state")
 local debug = require("scripts.multicast.debug")
+local ui = require("scripts.multicast.ui")
+local dependency = require("scripts.multicast.dependency")
 local compat = require("scripts.multicast.compat")
 local backend = require("scripts.multicast.magexp_backend")
 local targeting = require("scripts.multicast.targeting")
@@ -10,6 +12,7 @@ local M = {}
 local function cancel(reason)
     debug.warn("Burst cancelled: " .. tostring(reason))
     state.cancelSequence()
+    ui.refresh(state)
 end
 
 local function selectedSpellSnapshot(player)
@@ -59,13 +62,13 @@ local function launchOnce(player, castIndex)
     end
 
     debug.log(string.format(
-        "Sending MagExp cast request: spellId=%s",
+        "Dispatching launch request: spellId=%s",
         tostring(requestData.spellId)
     ))
 
-    local launched, launchReason = backend.launch(requestData)
-    if not launched then
-        cancel("backend launch failed: " .. tostring(launchReason))
+    local dispatched, dispatchReason = backend.launch(requestData)
+    if not dispatched then
+        cancel("launch request failed: " .. tostring(dispatchReason))
         return false
     end
 
@@ -80,6 +83,7 @@ local function queueNext(player, nextCastIndex)
     if state.remainingCasts <= 0 then
         debug.log("Burst sequence complete")
         state.completeSequence()
+        ui.refresh(state)
         return
     end
 
@@ -103,6 +107,7 @@ local function queueNext(player, nextCastIndex)
         end
 
         state.remainingCasts = math.max(0, state.remainingCasts - 1)
+        ui.refresh(state)
         queueNext(player, nextCastIndex + 1)
     end)
 end
@@ -111,6 +116,18 @@ function M.triggerMulticast()
     local player = compat.player()
     if not player then
         debug.error("No player object available")
+        return false
+    end
+
+    if dependency.isChecking() then
+        debug.warn("Trigger rejected: backend check still in progress")
+        debug.message("Multicast is waiting for backend handshake.")
+        return false
+    end
+
+    if not dependency.isAvailable() then
+        debug.warn("Trigger rejected: backend unavailable")
+        debug.message("Multicast unavailable: backend is not ready.")
         return false
     end
 
@@ -135,6 +152,7 @@ function M.triggerMulticast()
     ))
 
     state.beginSequence(spellId, spellName, casts, compat.now())
+    ui.refresh(state)
 
     local firstOk = launchOnce(player, 1)
     if not firstOk then
@@ -144,6 +162,7 @@ function M.triggerMulticast()
     if casts <= 1 then
         debug.log("Burst sequence complete (x1 mode)")
         state.completeSequence()
+        ui.refresh(state)
         return true
     end
 

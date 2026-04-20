@@ -1,22 +1,24 @@
 local config = require("scripts.multicast.config")
 local debug = require("scripts.multicast.debug")
+local dependency = require("scripts.multicast.dependency")
 
 local M = {
-    _lastHudLine = nil,
+    _lastStatusLine = nil,
 }
 
-local function formatHud(state)
+local function formatStatus(state)
     local mode = state.getModeCount()
-    local status = state.busy and "ACTIVE" or "IDLE"
+    local busy = state.busy and "ACTIVE" or "IDLE"
     local remaining = state.remainingCasts or 0
-    return string.format("Multicast x%d | %s | queued: %d", mode, status, remaining)
+    local dep = dependency.getStateLabel()
+    return string.format("Multicast x%d | %s | queued: %d | backend: %s", mode, busy, remaining, dep)
 end
 
 function M.init()
     if not config.ui.enabled then
         return
     end
-    debug.log("UI initialized")
+    debug.log("UI initialized (message-based status)")
 end
 
 function M.refresh(state)
@@ -24,10 +26,10 @@ function M.refresh(state)
         return
     end
 
-    local line = formatHud(state)
-    if line ~= M._lastHudLine then
+    local line = formatStatus(state)
+    if line ~= M._lastStatusLine then
         debug.message(line)
-        M._lastHudLine = line
+        M._lastStatusLine = line
     end
 end
 

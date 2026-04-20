@@ -9,17 +9,26 @@ local M = {
 function M.init(handlers)
     M._handlers = handlers
 
-    compat.registerKeyHandler(function(keyCode)
-        if keyCode == config.input.cycleKey then
+    compat.registerKeyHandler(function(key)
+        if not key or type(key) ~= "table" then
+            return
+        end
+
+        local symbol = key.symbol
+        if type(symbol) ~= "string" then
+            return
+        end
+
+        if symbol == config.input.cycleKey then
             debug.log("Input: cycle mode key pressed")
             M._handlers.onCycleMode()
-        elseif keyCode == config.input.triggerKey then
+        elseif symbol == config.input.triggerKey then
             debug.log("Input: trigger burst key pressed")
             M._handlers.onTriggerCast()
         end
     end)
 
-    debug.log("Input initialized (fallback keys: M=cycle, N=trigger)")
+    debug.log("Input initialized (fallback key symbols: m=cycle, n=trigger)")
 end
 
 return M

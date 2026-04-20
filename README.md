@@ -1,8 +1,12 @@
 # Multicast (OpenMW Lua)
 
-Multicast is a player-side OpenMW Lua mod that launches the currently selected spell in a short burst (`x1 / x2 / x3 / x5`) using **Spell Framework Plus** as the casting backend.
+Multicast is an OpenMW Lua mod that launches the player's selected spell in short burst modes (`x1 / x2 / x3 / x5`) using **Spell Framework Plus**.
 
-This mod is no longer a native cast API experiment. It does **not** rely on guessed `player.cast`/`magic.cast`/`types.Actor.cast` paths.
+This mod uses a two-part architecture:
+- **PLAYER script** (`init.lua`): input, UI/status, burst sequencing, selected-spell snapshot checks.
+- **GLOBAL bridge script** (`global_bridge.lua`): Spell Framework Plus availability check + launch dispatch.
+
+The mod does **not** rely on undocumented native cast APIs.
 
 ## Requirements
 
@@ -11,57 +15,52 @@ This mod is no longer a native cast API experiment. It does **not** rely on gues
 
 ## Installation
 
-1. Install and enable Spell Framework Plus and its dependencies first.
-2. Ensure `SPELL API PLUS.omwscripts` is enabled in your OpenMW content list.
-3. Place this mod folder into your OpenMW data/mod directory.
-4. Enable `multicast.omwscripts` in your OpenMW content list.
-5. Start the game.
+1. Install Spell Framework Plus and MaxYari Lua Physics.
+2. Enable `SPELL API PLUS.omwscripts`.
+3. Install this mod folder.
+4. Enable `multicast.omwscripts`.
+5. Start game and wait for backend-ready message.
 
-`multicast.omwscripts` uses OpenMW line-based script declarations:
+`multicast.omwscripts`:
 
 ```text
 # Multicast OpenMW script list
 PLAYER: scripts/multicast/init.lua
+GLOBAL: scripts/multicast/global_bridge.lua
 ```
 
 ## Controls
 
-Fallback bindings in this prototype:
+Fallback key symbols in this prototype:
 
-- `M`: cycle multicast mode (`x1 -> x2 -> x3 -> x5 -> x1`)
-- `N`: trigger multicast burst
+- `m`: cycle multicast mode (`x1 -> x2 -> x3 -> x5 -> x1`)
+- `n`: trigger burst
 
-## What multicast does
+## Runtime behavior
 
-When you trigger a burst:
+On startup, the PLAYER script asks the GLOBAL bridge to check backend readiness.
 
-1. The mod snapshots the currently selected spell.
-2. It starts a single active sequence (reentry is rejected while busy).
-3. It sends cast requests through Spell Framework Plus (`MagExp_CastRequest`).
-4. It schedules follow-up launches with simulation timers (`0.25s` spacing by default).
-5. If selected spell changes mid-sequence, remaining launches are cancelled.
+- If ready: dependency state becomes **READY** and burst casting is enabled.
+- If unavailable: dependency state becomes **UNAVAILABLE** and bursts are blocked.
+
+During burst:
+
+1. Selected spell is snapshotted.
+2. One sequence runs at a time (reentry blocked).
+3. Launch requests are sent to GLOBAL bridge.
+4. GLOBAL bridge dispatches via `interfaces.MagExp.launchSpell(data)`.
+5. Remaining queued launches cancel if selected spell changes.
 
 ## Current limitations
 
-- This is still a prototype focused on burst behavior validation.
-- Input is currently fallback key handling (`onKeyPress` path).
-- Targeting uses a simple forward-direction estimate from player rotation and should be refined as needed for special spell types.
-- Animation behavior for rapid burst launches is engine/framework dependent and should be observed in play tests.
+- Message-based status display (not a persistent custom widget).
+- Fallback input uses key-symbol comparisons from `onKeyPress`.
+- Launch visuals/animation behavior depend on engine + framework behavior.
+- Multicast remains blocked until handshake succeeds.
 
-## What to test / observe
+## What to test
 
-- Burst stability for `x2/x3/x5` over multiple spells.
-- Visual pacing and timing at `0.25s` intervals.
-- How animation presentation looks under repeated framework-driven launches.
-- Cancellation behavior when switching selected spells mid-burst.
-- Dependency failure behavior when Spell Framework Plus (or prerequisites) is missing.
-
-## Logging
-
-The mod logs with `[Multicast]` prefix and includes:
-
-- initialization and backend assumptions,
-- mode changes and trigger attempts,
-- each queued launch timestamp,
-- cancellation reasons,
-- dependency failure notices.
+- Backend handshake success/failure behavior.
+- Burst pacing and cancellation behavior at `0.25s` spacing.
+- UI/status updates for `CHECKING/READY/UNAVAILABLE` and active queued count.
+- Global bridge launch accepted/failed feedback logs.
