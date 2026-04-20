@@ -1,0 +1,3 @@
+# Multicast OpenMW script list
+PLAYER: scripts/multicast/init.lua
+GLOBAL: scripts/multicast/global_bridge.lua
