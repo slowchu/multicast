@@ -20,6 +20,7 @@ This is intentionally a behavior-testing prototype, not a balance/combat overhau
 1. Put this repository folder directly in your OpenMW mods location (as a normal mod folder).
 2. Ensure the repo root is treated as the mod data folder (no nested `Data Files` folder is required).
 3. Enable **`multicast.omwscripts`** in the launcher content list, or add it in `openmw.cfg` content entries.
+   - The `.omwscripts` file uses OpenMW line-based declarations (e.g. `PLAYER: scripts/multicast/init.lua`).
 4. Launch the game and load a save with a spellcasting-capable character.
 
 ## Controls / hotkeys (default fallback)
