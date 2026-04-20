@@ -165,8 +165,9 @@ function M.scheduleSimulation(delaySeconds, callback)
         return async.newSimulationTimer(delaySeconds, callback)
     end
 
-    if async and type(async:newSimulationTimer) == "function" then
-        return async:newSimulationTimer(delaySeconds, callback)
+    if async and type(async.newTimer) == "function" then
+        -- Some snapshots may expose a generic simulation-aware timer creator.
+        return async.newTimer(delaySeconds, callback, { simulation = true })
     end
 
     -- Fallback: run immediately so behavior remains testable even without timer API.
