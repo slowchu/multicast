@@ -8,6 +8,8 @@ local backend = require("scripts.multicast.magexp_backend")
 local input = require("scripts.multicast.input")
 local ui = require("scripts.multicast.ui")
 
+local handshakeRequestId = 0
+
 local function onCycleMode()
     local modeCount = state.cycleMode()
     debug.log(string.format("Mode changed: x%d", modeCount))
@@ -24,6 +26,9 @@ local function onTriggerCast()
 end
 
 local function requestBackendHandshake()
+    handshakeRequestId = handshakeRequestId + 1
+    local requestId = handshakeRequestId
+
     local ok, reason = backend.requestHandshake(compat.player())
     if not ok then
         dependency.setUnavailable("handshake dispatch failed: " .. tostring(reason))
@@ -31,7 +36,19 @@ local function requestBackendHandshake()
         return
     end
 
-    debug.log("Requested backend handshake from GLOBAL bridge")
+    debug.log("Requested backend handshake from GLOBAL bridge (requestId=" .. tostring(requestId) .. ")")
+
+    compat.scheduleSimulation(config.handshakeTimeoutSeconds, function()
+        if requestId ~= handshakeRequestId then
+            return
+        end
+        if dependency.isChecking() then
+            dependency.setUnavailable("handshake timeout")
+            debug.warn("Backend handshake timed out")
+            debug.message("Multicast backend check timed out.")
+            ui.refresh(state)
+        end
+    end)
 end
 
 local function init()
@@ -68,8 +85,9 @@ return {
     },
     eventHandlers = {
         Multicast_BackendReady = function(data)
+            handshakeRequestId = handshakeRequestId + 1
             dependency.setAvailable()
-            debug.log("Backend handshake success: Spell Framework Plus available")
+            debug.log("Backend ready confirmed by handshake")
             if data and data.backend then
                 debug.log("Global backend reports: " .. tostring(data.backend))
             end
@@ -77,9 +95,10 @@ return {
             ui.refresh(state)
         end,
         Multicast_BackendUnavailable = function(data)
+            handshakeRequestId = handshakeRequestId + 1
             local reason = (data and data.reason) or "unknown"
             dependency.setUnavailable(reason)
-            debug.warn("Backend handshake failed: " .. tostring(reason))
+            debug.warn("Backend unavailable from handshake: " .. tostring(reason))
             ui.refresh(state)
         end,
         Multicast_LaunchAccepted = function(data)

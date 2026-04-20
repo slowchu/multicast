@@ -16,7 +16,7 @@ function M.requestHandshake(player)
         return false, tostring(resultOrErr)
     end
 
-    return true, "handshake request dispatched"
+    return true, "handshake dispatch succeeded"
 end
 
 function M.launch(data)
@@ -37,7 +37,7 @@ function M.launch(data)
         return false, tostring(resultOrErr)
     end
 
-    return true, "launch request dispatched"
+    return true, "launch request dispatch succeeded"
 end
 
 return M

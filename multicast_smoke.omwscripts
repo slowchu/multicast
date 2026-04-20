@@ -1,0 +1,3 @@
+# Multicast smoke test script list
+PLAYER: scripts/multicast/smoke_player.lua
+GLOBAL: scripts/multicast/smoke_global.lua

@@ -24,6 +24,10 @@ function M.isChecking()
     return M._state == "checking" or M._state == "unknown"
 end
 
+function M.isUnavailable()
+    return M._state == "unavailable"
+end
+
 function M.getState()
     return M._state
 end

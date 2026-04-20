@@ -9,6 +9,9 @@ local function isBackendReady()
 end
 
 local function sendToRequester(requester, eventName, data)
+    -- Bridge reply transport:
+    -- GLOBAL scripts cannot directly call PLAYER eventHandlers by name.
+    -- We explicitly route replies to the requesting player object.
     if requester and type(requester.sendEvent) == "function" then
         requester:sendEvent(eventName, data or {})
     end
