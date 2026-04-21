@@ -10,14 +10,19 @@ function M.init(handlers)
     M._handlers = handlers
 
     compat.registerKeyHandler(function(key)
-        if not key or type(key) ~= "table" then
+        if not key then
             return
         end
 
         local symbol = key.symbol
-        if type(symbol) ~= "string" then
+        if not symbol then
             return
         end
+        if type(symbol) ~= "string" then
+            symbol = tostring(symbol)
+        end
+
+        symbol = symbol:lower()
 
         if symbol == config.input.cycleKey then
             debug.log("Input: cycle mode key pressed")
